@@ -24,7 +24,7 @@ Currently the script:
 - Sends a Slack notification telling the team that a new instance was launched.
 - Delete all installed packages and Bash history.
 
-### To-DO
+### To-Do
 
 Look at any [open issues](https://github.com/vidsy/tutum-startup/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+label%3ATo-Do) labeled as `to-do`.
 
