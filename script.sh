@@ -1,6 +1,14 @@
 #!/bin/bash
 # Expected to be run on Ubuntu 14.04
 
+# Parameters
+# -- Tutum Credentials: store your username and API Key in an S3 bucket that the
+# EC2 Instance's IAM Role has permission to access
+# Username: <CREDENTIALS_S3_BUCKET>/<ENVIRONMENT>/tutum_auth_user
+# API Key: <CREDENTIALS_S3_BUCKET>/<ENVIRONMENT>/tutum_auth_api_key
+CREDENTIALS_S3_BUCKET="xxx"
+ENVIRONMENT="xxx" #e.g. "staging", "production"
+
 # Update instance
 
 sudo locale-gen en_GB.UTF-8
@@ -17,16 +25,16 @@ sudo apt-get install jq -y
 
 # Install AWS CLI
 
-sudo apt-get install awscli -y
-
-# Set Tutum env vars
-
-export TUTUM_USER=xxx
-export TUTUM_APIKEY=xxx
+sudo pip install awscli==1.9.20
 
 # Set AWS env vars
 
 export AWS_DEFAULT_REGION=$(ec2metadata --availability-zone | sed 's/.$//')
+
+# Set Tutum env vars
+
+export TUTUM_USER=$(aws s3 cp s3://${CREDENTIALS_S3_BUCKET}/${ENVIRONMENT}/tutum_auth_user - --region ${AWS_DEFAULT_REGION})
+export TUTUM_APIKEY=$(aws s3 cp s3://${CREDENTIALS_S3_BUCKET}/${ENVIRONMENT}/tutum_auth_api_key - --region ${AWS_DEFAULT_REGION})
 
 # Register this node with Tutum
 
@@ -57,8 +65,8 @@ done
 # Cleanup instance
 
 unset AWS_DEFAULT_REGION TUTUM_USER TUTUM_APIKEY TUTUM_UUID
-sudo pip uninstall tutum -y
-sudo apt-get purge python-pip jq awscli -y
+sudo pip uninstall tutum aws-cli -y
+sudo apt-get purge python-pip jq -y
 cat /dev/null > ~/.bash_history && history -c
 
 # Send Slack Notification
