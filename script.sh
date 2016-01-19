@@ -20,18 +20,17 @@ if   which apt-get; then OS_KIND="debian"
 elif which yum;     then OS_KIND="fedora"
 fi
 
-# Update instance
-
-locale-gen en_GB.UTF-8
-
 #Install dependencies
 
 case "$OS_KIND" in
   debian)
+    locale-gen en_GB.UTF-8
     apt-get update
     apt-get install -y python-pip jq
     ;;
   fedora)
+    echo "en_GB.UTF-8" > /etc/locale.conf
+    yum install -y python #Fedora doesn't have Python pre-installed
     #pip & jq aren't in the yum repos
     curl -O https://bootstrap.pypa.io/get-pip.py
     python get-pip.py
