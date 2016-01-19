@@ -1,5 +1,4 @@
 #!/bin/bash
-# Expected to be run on Ubuntu 14.04
 
 # Parameters
 # -- Tutum Credentials: store your username and API Key in an S3 bucket that the
@@ -12,27 +11,47 @@ ENVIRONMENT="xxx" #e.g. "staging", "production"
 # before the attempt is abandoned
 DEPLOYMENT_TIMEOUT="5m"
 
+METADATA_SERVICE_URL="http://169.254.169.254/latest/meta-data"
+
+# Find OS kind: yum (Fedora based) or apt (Debian based)?
+
+OS_KIND="unknown"
+if   which apt-get; then OS_KIND="debian"
+elif which yum;     then OS_KIND="fedora"
+fi
+
 # Update instance
 
-sudo locale-gen en_GB.UTF-8
-sudo apt-get update
+locale-gen en_GB.UTF-8
 
-# Install Tutum CLI
+#Install dependencies
 
-sudo apt-get install python-pip -y
-sudo pip install tutum==0.21.1
+case "$OS_KIND" in
+  debian)
+    apt-get update
+    apt-get install -y python-pip jq
+    ;;
+  fedora)
+    #pip & jq aren't in the yum repos
+    curl -O https://bootstrap.pypa.io/get-pip.py
+    python get-pip.py
+    curl -Lo /usr/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64
+    chmod ugo+x /usr/bin/jq
+    #We also need to configure sudo for the Tutum install to work
+    echo "Defaults:root !requiretty" >> /etc/sudoers.d/91-cloud-sudoers-requiretty
+    chmod 440 /etc/sudoers.d/91-cloud-sudoers-requiretty
+    ;;
+  unknown)
+    echo "This OS is not supported"
+    exit 2
+    ;;
+esac
 
-# Install jq
-
-sudo apt-get install jq -y
-
-# Install AWS CLI
-
-sudo pip install awscli==1.9.20
+pip install tutum==0.21.1 awscli==1.9.20
 
 # Set AWS env vars
 
-export AWS_DEFAULT_REGION=$(ec2metadata --availability-zone | sed 's/.$//')
+export AWS_DEFAULT_REGION=$(curl -fs ${METADATA_SERVICE_URL}/placement/availability-zone | sed 's/.$//')
 
 # Set Tutum env vars
 
@@ -59,7 +78,7 @@ if [ $? != 0 ]; then echo "Node never came up"; exit 2; fi
 
 # Set Tutum tags based on EC2 tags
 
-INSTANCE_ID=$(ec2metadata --instance-id)
+INSTANCE_ID=$(curl -fs ${METADATA_SERVICE_URL}/instance-id)
 EC2_TAGS=$(aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" | jq -r '.Tags | map(select(.Key | contains("tutum"))) | .[].Value')
 
 for TAG in $EC2_TAGS
@@ -70,6 +89,17 @@ done
 # Cleanup instance
 
 unset AWS_DEFAULT_REGION TUTUM_USER TUTUM_APIKEY TUTUM_UUID
-sudo pip uninstall tutum aws-cli -y
-sudo apt-get purge python-pip jq -y
+pip uninstall tutum awscli -y
+case "$OS_KIND" in
+  debian)
+    apt-get purge -y python-pip jq
+    ;;
+  fedora)
+    pip uninstall pip -y
+    rm /usr/bin/jq
+    ;;
+esac
+
+# Cleanup history
+
 cat /dev/null > ~/.bash_history && history -c
