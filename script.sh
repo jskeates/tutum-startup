@@ -73,17 +73,3 @@ unset AWS_DEFAULT_REGION TUTUM_USER TUTUM_APIKEY TUTUM_UUID
 sudo pip uninstall tutum aws-cli -y
 sudo apt-get purge python-pip jq -y
 cat /dev/null > ~/.bash_history && history -c
-
-# Send Slack Notification
-
-INSTANCE_IP=$(ec2metadata --public-ipv4)
-INSTANCE_TYPE=$(ec2metadata --instance-type)
-TIME=$(date +"%T")
-
-MSG="$TIME INFO - A new EC2 instance has started: *$INSTANCE_ID* / $INSTANCE_TYPE ($INSTANCE_IP)"
-
-curl -X POST --data-urlencode "payload={\"channel\": \"#devops\", \"username\": \"AWS\", \"text\": \"$MSG\", \"icon_url\": \"http://cl.ly/1z130N3p2G42/Image%202016-01-12%20at%2012.18.09%20pm.png\"}" https://hooks.slack.com/services/xxx/xxx/xxx
-
-# Cleanup history
-
-cat /dev/null > ~/.bash_history && history -c
